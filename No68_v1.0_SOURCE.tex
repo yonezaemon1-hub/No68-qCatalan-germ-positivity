@@ -1,0 +1,187 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,amsthm,booktabs,array,geometry,hyperref,fancyhdr,xcolor}
+\geometry{margin=27mm,headheight=15pt}
+\hypersetup{colorlinks=true,linkcolor=blue!55!black,urlcolor=blue!55!black,citecolor=blue!55!black,
+ pdftitle={Exact Finite Verification of q-Catalan Germ Positivity Through a=32},pdfauthor={Ryutaro Yonezu},pdfsubject={No.68 v1.0 unreviewed finite-computation preprint; AI-assisted audit}}
+\newtheorem{theorem}{Finite verification result}
+\newtheorem{lemma}{Lemma}
+\newtheorem{corollary}{Corollary}
+\newcommand{\NN}{\mathbb{N}}
+\newcommand{\ZZ}{\mathbb{Z}}
+\newcommand{\Cat}{\operatorname{Cat}}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{No.68 -- Unreviewed preprint}
+\fancyhead[R]{v1.0 -- 15 November 2026}
+\fancyfoot[C]{\thepage}
+\title{\textbf{Exact Finite Verification of $q$-Catalan Germ Positivity Through $a=32$}\\[.3em]
+\large A bounded computational extension of Armstrong's Conjecture 8.4}
+\author{Ryutaro Yonezu\\\small Independent Researcher}
+\date{15 November 2026\\\small v1.0 -- Unreviewed preprint}
+\begin{document}
+\maketitle
+\begin{abstract}
+Drew Armstrong introduced $q$-Catalan germs and reported verifying their coefficientwise nonnegativity through $a=20$ \cite{Armstrong2026}. We report exact finite computations for every germ with $3\le a\le32$, comprising $6{,}426$ admissible germs, including $4{,}918$ for $21\le a\le32$. No negative coefficient occurred in the checked range. The extension uses bounded dynamic programming, a separately implemented inclusion--exclusion method, exact division by $[a]_q$, arbitrary-precision Python cross-checks, and frozen reproducibility records. The computations were reproduced in a reported independent AI-assisted Linux audit and compared with author-operated Windows execution records; the reported fresh Windows run contains environment and exit-code metadata, but its original log file is not archived here. The provenance and scope of these reports are distinguished below. The established claim concerns only a finite range of $a$, not the unrestricted conjecture. The equivalence and implications proved in Armstrong's paper give bounded instances of standard partitions and Johnson statistics, without a new general proof. Historical priority beyond the cited source is unresolved; this manuscript is not peer reviewed.
+\end{abstract}
+
+\section{Statement and source conventions}
+We use the numbering of the open-access \emph{Annals of Combinatorics} article by Armstrong \cite{Armstrong2026}, published 28 April 2026: Definition~8.2, Proposition~8.3, Conjectures~8.4 and~9.2. The arXiv submission history identifies version~4 as revised 17 April 2026 and version~3 as revised 29 September 2025 \cite{ArmstrongArxivV4}; the v4 PDF title page itself still says ``September 2025''. These are different date fields, not conflicting manuscript versions. The v4 PDF and published article use the cited Section~8 numbering, whereas a v3 HTML rendering uses a different numbering system. We therefore fix the published article numbering throughout.
+
+For an integer $a\ge3$, set
+\[
+M=(a-1)^2,\quad [a]_q=1+q+\cdots+q^{a-1},\quad
+\mathbf{x}=(x_1,\ldots,x_{a-1})\in\{0,\ldots,a-1\}^{a-1}.
+\]
+Write $S(\mathbf{x})=\sum_{i=1}^{a-1}x_i$ and $T(\mathbf{x})=\sum_{i=1}^{a-1}ix_i$. For $1\le c\le M$ with $\gcd(a,c)=1$, define
+\[
+p_a(c)=\max\{d<c:\gcd(a,d)=1\},\qquad
+G_{a,c}(q)=\frac{1}{[a]_q}
+\sum_{\substack{0\le x_i\le a-1\\p_a(c)<S(\mathbf{x})\le c}}q^{T(\mathbf{x})}.
+\tag{1}\label{eq:germ}
+\]
+In particular $p_a(1)=-1$. This is the germ of Definition~8.2 \cite{Armstrong2026}; Armstrong's Theorem~8.1 guarantees $G_{a,c}(q)\in\ZZ[q]$.
+
+\begin{theorem}[computer-assisted, finite parameter range]\label{thm:finite}
+For every integer $3\le a\le32$ and every $1\le c\le(a-1)^2$ with $\gcd(a,c)=1$, exact computation of the polynomial in \eqref{eq:germ} yields
+\[
+G_{a,c}(q)\in\NN[q].
+\]
+The complete checked family comprises $6{,}426$ germs. For $21\le a\le32$ there are $4{,}918$ germs, all with zero negative coefficients; the subrange $28\le a\le32$ contains $2{,}647$ germs.
+\end{theorem}
+Theorem~\ref{thm:finite} is a reproducible, machine-verified \emph{finite computation statement}, rather than a pen-and-paper proof of Conjecture~8.4 for arbitrary $a$. The interval $21\le a\le32$ extends the computational range explicitly documented in Armstrong's published article, which states that the germ conjecture was tested through $a=20$ \cite{Armstrong2026}; this does not establish exclusive historical priority.
+
+\begin{lemma}[count of admissible germs]\label{lem:count}
+For $a\ge3$, the number of admissible indices $c$ in \eqref{eq:germ} is $(a-2)\varphi(a)+1$.
+\end{lemma}
+\begin{proof}
+Since $(a-1)^2=a(a-2)+1$, the indices $1,\ldots,a(a-2)$ consist of $a-2$ complete residue blocks modulo $a$, each containing $\varphi(a)$ integers coprime to $a$. The final index $a(a-2)+1$ is congruent to $1\pmod a$ and contributes one more.
+\end{proof}
+
+\section{Exact computational method}
+For each $a$, let $D_i(s,w)$ count vectors $(x_1,\ldots,x_i)$ with $0\le x_j\le a-1$, $\sum_{j=1}^i x_j=s$, and $\sum_{j=1}^i jx_j=w$. Starting from $D_0(0,0)=1$, one program uses the bounded recurrence
+\[
+D_i(s,w)=D_{i-1}(s,w)+D_i(s-1,w-i)-D_{i-1}(s-a,w-ai),\tag{2}
+\]
+with negative subscripts interpreted as zero. A separate C++ implementation first counts unrestricted vectors and imposes $x_i<a$ by inclusion--exclusion; this is an algorithmically distinct numerator calculation. The Python verifier and C++ recurrence use the same bounded recurrence and are independently implemented, not independent numerator algorithms.
+
+For each admissible $c$ set\[
+P_{a,c}(w)=\sum_{s=p_a(c)+1}^{c}D_{a-1}(s,w),\qquad
+G_{a,c}(q)=\sum_{w\ge0}Q_{a,c}(w)q^w.
+\]
+Exact division by $[a]_q$ uses
+\[
+Q_{a,c}(w)=P_{a,c}(w)-P_{a,c}(w-1)+Q_{a,c}(w-a),\tag{3}
+\]
+with out-of-range entries zero. This is the coefficient identity obtained from $(1-q^a)G_{a,c}(q)=(1-q)\sum_wP_{a,c}(w)q^w$. Every computed quotient coefficient is tested for sign. All programs use this same algebraic quotient identity; the C++ verifier additionally tests exact numerator reconstruction from the quotient and checks the vanishing quotient tail. Thus equation (3) is checked by reconstruction, but the separate numerator methods do not constitute independent derivations of the division identity.
+
+The frozen C++ checker also verifies the evaluation identity $\sum_c G_{a,c}(1)=a^{a-2}$, and the reciprocal-pair symmetry of the germs. Signed 256-bit arithmetic is used in its validated range $a\le32$; the archive records a conservative upper bound under 191 bits for each unrestricted intermediate DP count and under 165 bits for the quotient recurrence. A separately implemented standard-library Python checker uses arbitrary-precision integers. Small cases are independently compared to Armstrong's Table~1, while the separately reported AI-assisted audit additionally enumerated the definitions directly for $a=6,7,8$.
+
+\section{Frozen numerical results and provenance}
+The following table is generated directly from the frozen file \nolinkurl{EXPECTED_RESULTS_V03.json}. Here ``positive'' counts strictly positive coefficient positions, not the number of germs. ``digest256'' is a \emph{word-wise FNV-style 64-bit digest}, computed by XORing four successive 64-bit words of each signed 256-bit coefficient and multiplying by an FNV prime modulo $2^{64}$. It is \emph{not} standard byte-wise FNV-1a and not a cryptographic hash; ``256'' denotes input width, not output length. The full result records also carry maximum coefficients and a separate digest128.
+
+\begin{center}
+\small
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{r r r r l}
+\toprule
+$a$ & germs & positive & negative & digest256 (hex)\\
+\midrule
+21 & 229 & 301345 & 0 & \texttt{24a67f7210b80b7a}\\
+22 & 201 & 307257 & 0 & \texttt{90ace365b0fec04b}\\
+23 & 463 & 810365 & 0 & \texttt{5f0b683542f160b8}\\
+24 & 177 & 357204 & 0 & \texttt{f1a1ab52e1468c9d}\\
+25 & 461 & 1050577 & 0 & \texttt{64f6d154a4c6b76e}\\
+26 & 289 & 747347 & 0 & \texttt{8561136000124bff}\\
+27 & 451 & 1309877 & 0 & \texttt{0bcb53ac8cb26a0b}\\
+28 & 313 & 1021142 & 0 & \texttt{8b8997cb939f1941}\\
+29 & 757 & 2745865 & 0 & \texttt{9bf13e78f6b35f67}\\
+30 & 225 & 913489 & 0 & \texttt{7bfcf22b924b5883}\\
+31 & 871 & 3890157 & 0 & \texttt{98494a7b0c7c0497}\\
+32 & 481 & 2376488 & 0 & \texttt{d2100d5ff90cbbb1}\\
+\midrule
+$21\!:\!32$ & $4{,}918$ & -- & $0$ & --\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+For a compact, exact source-level audit the manuscript contains the machine-readable record sequence below as a non-rendering TeX macro \texttt{\textbackslash FrozenRecord}. Its seven parameters are $a$, germs, negative, positive, largest, digest128 and digest256. The archived verifier requires all seven fields to equal the frozen JSON; it also extracts the human-readable table above and checks every row.
+\newcommand{\FrozenRecord}[7]{}
+\FrozenRecord{21}{229}{0}{301345}{1424539810121261681492}{9b6746826fbb83aa}{24a67f7210b80b7a}
+\FrozenRecord{22}{201}{0}{307257}{78962368881143719986964}{b3fba066beb8a11b}{90ace365b0fec04b}
+\FrozenRecord{23}{463}{0}{810365}{1853826076638404528257859}{ac56ca19cc64ee50}{5f0b683542f160b8}
+\FrozenRecord{24}{177}{0}{357204}{194104800477684464515092278}{5c9387c2b0eb4d15}{f1a1ab52e1468c9d}
+\FrozenRecord{25}{461}{0}{1050577}{5064090658218013612524933603}{557187a28d0c246e}{64f6d154a4c6b76e}
+\FrozenRecord{26}{289}{0}{747347}{523370326431276698509288306253}{b16303f86f535a4f}{8561136000124bff}
+\FrozenRecord{27}{451}{0}{1309877}{15894911284141789253917681090765}{70fccb20312243f3}{0bcb53ac8cb26a0b}
+\FrozenRecord{28}{313}{0}{1021142}{1880959019100822429030604806692217}{86eca0d839f18bc9}{8b8997cb939f1941}
+\FrozenRecord{29}{757}{0}{2745865}{56788297270470025326143881220826895}{abf97163166508cf}{9bf13e78f6b35f67}
+\FrozenRecord{30}{225}{0}{913489}{11645676464235902389652892794256499070}{a54bceb4027165b3}{7bfcf22b924b5883}
+\FrozenRecord{31}{871}{0}{3890157}{253083559911939647497193602142101279586}{9d024440411e3c9f}{98494a7b0c7c0497}
+\FrozenRecord{32}{481}{0}{2376488}{18767193023758617887573106305082574283367}{de0176e6073d74a9}{d2100d5ff90cbbb1}
+
+The two frozen C++ algorithms agree in the full coefficient stream for each $a=28,\ldots,32$ (2,647 germs), with recorded stream SHA-256 values and sizes in \nolinkurl{COEFFICIENT_IDENTITY.txt}; raw streams were not retained. Further summary comparisons use the C++ outputs for all $a=21,\ldots,32$. Finite observations for $3\le a\le20$ and $21\le a\le27$ were checked in the preceding frozen v0.2 work.
+
+The earlier operator-supplied Windows log reported successful Python checks for every $a=21,\ldots,32$ but lacked system-version, exit-code, and time metadata. A second, author-operated Windows run was reported on 14 November 2026 (Windows 10 build 10.0.19045; PowerShell 5.1.19041.7844; Python 3.12.10). The pasted terminal copy was reported to show 21:06:08--21:12:28 JST (6 minutes 20 seconds), 14 zero exit codes, a match to the frozen expected-file SHA-256, and the two v0.6 full-run success markers. Its results for all $4{,}918$ germs matched the frozen records according to the supplied AI-assisted review. The author subsequently reported a SHA-256 value for the privately retained log file, but the original log bytes were not supplied to this handoff; the hash cannot be independently checked against its file here. The source log therefore remains unauthenticated by this audit. This is reported execution evidence, not an independently witnessed or signed terminal record.
+
+A separately supplied \emph{AI-assisted} Linux audit \emph{reports} complete Python 3.13 and C++ two-algorithm reproduction for $a=21,\ldots,32$, two-method C++ checks for $a=3,\ldots,20$, and direct enumeration for $a=6,7,8$. Its full raw terminal transcript is likewise not included in this handoff. These findings are not independent human peer review, and the limitations in provenance do not change the reported numerical agreement.
+
+\section{Consequences from Armstrong's theorems}
+Armstrong's published article proves that Conjecture~8.4 (germ positivity) and Conjecture~9.2 (standard partitions) are equivalent. It also proves that either yields Conjecture~7.2 (Johnson statistics) and Conjecture~1.1 (coefficientwise monotonicity of rational $q$-Catalan polynomials), through the implications shown in its Section~10 \cite{Armstrong2026}.
+\begin{corollary}[bounded instances of Armstrong's conjectures]\label{cor:consequences}
+For each fixed integer $3\le a\le32$, the finite verification of Theorem~\ref{thm:finite}, together with Armstrong's established equivalences and implications, yields the corresponding fixed-$a$ instances of Conjectures~9.2 and~7.2. In particular, for all positive $b<b'$ with $\gcd(a,b)=\gcd(a,b')=1$,
+\[
+\Cat(a,b')_q-\Cat(a,b)_q\in\NN[q].
+\]
+\end{corollary}
+\noindent These consequences are applications of \cite{Armstrong2026}, not independent proofs of the conjectures for arbitrary $a$. The stronger ribbon-partition conjecture (Conjecture~10.2) does \emph{not} follow from germ positivity and is not claimed here.
+
+\section{Scope, novelty and audit status}
+The claimed extension is precisely a finite computation for Armstrong's \emph{germs}, not the previously known nonnegativity of rational $q$-Catalan polynomials themselves. A limited public literature search through 14 November 2026 identified no direct published duplicate of the range $a=21,\ldots,32$, but was not exhaustive and cannot exclude unpublished or differently indexed computations. Hence \textbf{NOVELTY: INCONCLUSIVE}; \textbf{REFERENCES: PARTIAL}. The independent audits reported here were AI-assisted; no human peer review was performed. The unrestricted statement for arbitrary $a$ is unresolved by this work. Nothing herein asserts a proven Fibonacci connection.
+
+This v1.0 publication edition preserves the audited mathematical statements, equations, numerical tables, frozen mathematical programs and expected results. Publication edits concern version labels, presentation and references to the accompanying public reproducibility kit. \textbf{Copyright (c) 2026 Ryutaro Yonezu. All rights reserved.} Private Windows transcripts and personal machine paths are excluded from the public assets.
+
+\section*{Reproducibility note}
+The accompanying \nolinkurl{No68_v1.0_REPRODUCIBILITY.zip} contains the frozen C++ and Python mathematical checkers, \nolinkurl{EXPECTED_RESULTS_V03.json}, result summaries, a checksum manifest and a Windows metadata-capturing script. After extraction, run \texttt{python -B}\ \nolinkurl{verify_public_data.py} for checksum and frozen-record consistency, then \texttt{python -B} \nolinkurl{run_reproduce.py} \texttt{--full} to recompute $a=21,\ldots,32$. The runner uses path-free command labels on successful runs; failed subprocess tracebacks may still expose local paths and must be reviewed before sharing. C++17 and Boost.Multiprecision are needed for the C++ checker; the Python checker uses only the standard library. Private audit archives and raw Windows evidence are excluded. The full computational audit depends on executing the code; package consistency is not itself a computation certificate.
+
+\begin{thebibliography}{9}
+\bibitem{Armstrong2026}
+D. Armstrong, \emph{Lattice Points and Rational $q$-Catalan Numbers},
+Annals of Combinatorics (2026), published 28 April 2026.
+\href{https://doi.org/10.1007/s00026-026-00819-9}{doi:10.1007/s00026-026-00819-9}.
+\bibitem{ArmstrongArxivV4}
+D. Armstrong, \emph{Lattice Points and Rational $q$-Catalan Numbers},
+arXiv:2403.06318v4 (version posted 17 April 2026; PDF front matter dated September 2025),
+\url{https://arxiv.org/pdf/2403.06318v4}.
+\end{thebibliography}
+\appendix
+\section[Counts for the previously checked range 3 <= a <= 20]{Counts for the previously checked range $3\le a\le20$}
+The germ counts below follow exactly from Lemma~\ref{lem:count}; the reported independent AI-assisted two-method audit reran all these values and found zero negative coefficients. They are provided to make the claimed $3\le a\le32$ range explicit, rather than as newly established independent results. The counts alone do not prove positivity.\par\medskip
+\begin{center}
+\small
+\setlength{\tabcolsep}{9pt}
+\begin{tabular}{r r r@{\qquad}r r r}
+\toprule
+$a$ & germs & negatives & $a$ & germs & negatives\\
+\midrule
+3 & 3 & 0 & 12 & 41 & 0\\
+4 & 5 & 0 & 13 & 133 & 0\\
+5 & 13 & 0 & 14 & 73 & 0\\
+6 & 9 & 0 & 15 & 105 & 0\\
+7 & 31 & 0 & 16 & 113 & 0\\
+8 & 25 & 0 & 17 & 241 & 0\\
+9 & 43 & 0 & 18 & 97 & 0\\
+10 & 33 & 0 & 19 & 307 & 0\\
+11 & 91 & 0 & 20 & 145 & 0\\
+\midrule
+\multicolumn{6}{c}{$3\le a\le20$: $1{,}508$ germs in total; $0$ reported negative coefficients}\\
+\bottomrule
+\end{tabular}
+\end{center}
+The new range $21\le a\le32$ contributes $4{,}918$ further germs (Table in Section 3), giving $1{,}508+4{,}918=6{,}426$ in all. The accompanying v1.0 code/data kit contains no private machine logs or earlier audit archives.
+
+\vfill
+\begin{center}\small\textbf{v1.0 -- Unreviewed preprint -- All rights reserved}\end{center}
+\end{document}
