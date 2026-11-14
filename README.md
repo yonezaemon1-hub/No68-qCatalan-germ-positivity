@@ -4,6 +4,9 @@
 **Ryutaro Yonezu — Independent Researcher**  
 **v1.0 — 15 November 2026 — Unreviewed preprint**
 
+**DOI:** [10.5281/zenodo.24223952](https://doi.org/10.5281/zenodo.24223952)  
+**Zenodo record:** [Version 1.0](https://zenodo.org/records/24223952)
+
 Exact finite computations verify coefficientwise nonnegativity for all **6,426 admissible q-Catalan germs with 3 ≤ a ≤ 32**, including **4,918 for a=21..32**. No negative coefficients were found. This extends the range explicitly documented in Drew Armstrong's published article (a≤20); it does not establish exclusive historical priority or prove the unrestricted conjecture.
 
 ## Status and scope
